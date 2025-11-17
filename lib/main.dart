@@ -1,290 +1,42 @@
-import 'dart:ui'; // Untuk efek blur pada dialog
-import 'package:flutter/material.dart'; // Paket utama Flutter untuk UI
+import 'package:flutter/material.dart';
+import 'services/prefs_service.dart';
+import 'pages/login_page.dart';
+import 'pages/home_page.dart';
 
-void main() {
-  runApp(const SimpleNotesApp()); // Menjalankan aplikasi utama
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Inisialisasi SharedPreferences
+  final prefs = PrefsService.instance;
+  await prefs.init();
+
+  runApp(const SimpleNotesApp());
 }
 
-// ===========================
-// APLIKASI UTAMA
-// ===========================
 class SimpleNotesApp extends StatelessWidget {
   const SimpleNotesApp({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final prefs = PrefsService.instance;
+
     return MaterialApp(
-      title: 'Simple Notes',
-      debugShowCheckedModeBanner: false, // Menghilangkan banner debug
+      debugShowCheckedModeBanner: false,
+      title: "Simple Notes Login",
       theme: ThemeData(
-        // Tema aplikasi
+        useMaterial3: true,
+        fontFamily: 'Poppins',
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFFD2B48C),
           primary: const Color(0xFFB29470),
           secondary: const Color(0xFFF5E6CC),
         ),
-        useMaterial3: true, // Menggunakan desain Material 3
-        fontFamily: 'Poppins', // Font utama
       ),
-      home: const NotesHome(), // Halaman utama
-    );
-  }
-}
-
-// ===========================
-// HALAMAN UTAMA CATATAN
-// ===========================
-class NotesHome extends StatefulWidget {
-  const NotesHome({super.key});
-
-  @override
-  State<NotesHome> createState() => _NotesHomeState();
-}
-
-class _NotesHomeState extends State<NotesHome> {
-  // Controller untuk input judul dan isi catatan
-  final TextEditingController _titleController = TextEditingController();
-  final TextEditingController _contentController = TextEditingController();
-
-  // List untuk menyimpan semua catatan
-  final List<Map<String, String>> _notes = [];
-
-  // Fungsi untuk menambah catatan baru
-  void _addNote() {
-    // Jika kedua field kosong, tidak disimpan
-    if (_titleController.text.isEmpty && _contentController.text.isEmpty) return;
-
-    setState(() {
-      // Tambahkan catatan baru ke list
-      _notes.add({
-        'title': _titleController.text,
-        'content': _contentController.text,
-      });
-    });
-
-    // Kosongkan textfield
-    _titleController.clear();
-    _contentController.clear();
-
-    // Tutup dialog
-    Navigator.pop(context);
-  }
-
-  // Fungsi untuk menampilkan dialog tambah catatan
-  void _showAddNoteDialog() {
-    showGeneralDialog(
-      context: context,
-      barrierDismissible: true, // Bisa ditutup dengan tap di luar dialog
-      barrierLabel: "Tambah Catatan",
-      barrierColor: Colors.black45, // Warna bayangan di belakang dialog
-      transitionDuration: const Duration(milliseconds: 300), // Durasi animasi
-      pageBuilder: (context, animation, secondaryAnimation) {
-        return BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6), // Efek blur latar belakang
-          child: Center(
-            child: Container(
-              width: 350,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFF8F0),
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.brown.withOpacity(0.25),
-                    blurRadius: 12,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: Material(
-                color: Colors.transparent,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Judul dialog
-                    const Text(
-                      "Tambah Catatan",
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF5C4033),
-                      ),
-                    ),
-                    const SizedBox(height: 15),
-
-                    // Input judul catatan
-                    TextField(
-                      controller: _titleController,
-                      decoration: InputDecoration(
-                        labelText: "Judul",
-                        filled: true,
-                        fillColor: const Color(0xFFFFF5E4),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-
-                    // Input isi catatan
-                    TextField(
-                      controller: _contentController,
-                      maxLines: 3,
-                      decoration: InputDecoration(
-                        labelText: "Isi Catatan",
-                        filled: true,
-                        fillColor: const Color(0xFFFFF5E4),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Tombol Simpan
-                    ElevatedButton(
-                      onPressed: _addNote,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFB29470),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15),
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 25, vertical: 10),
-                      ),
-                      child: const Text(
-                        "Simpan",
-                        style: TextStyle(color: Colors.white, fontSize: 16),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
+      initialRoute: prefs.isLoggedIn ? '/home' : '/login',
+      routes: {
+        '/login': (_) => const LoginPage(),
+        '/home': (_) => const HomePage(),
       },
-
-      // Efek animasi munculnya dialog
-      transitionBuilder: (context, animation, secondaryAnimation, child) {
-        return FadeTransition(
-          opacity: CurvedAnimation(
-            parent: animation,
-            curve: Curves.easeInOut,
-          ),
-          child: ScaleTransition(
-            scale: CurvedAnimation(
-              parent: animation,
-              curve: Curves.easeOutBack,
-            ),
-            child: child,
-          ),
-        );
-      },
-    );
-  }
-
-  // ===========================
-  // TAMPILAN UTAMA APLIKASI
-  // ===========================
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFFFF8F0),
-
-      // AppBar di bagian atas
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFB29470),
-        elevation: 0,
-        centerTitle: true,
-        title: const Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.edit_note_rounded, color: Colors.white),
-            SizedBox(width: 8),
-            Text(
-              "Simple Notes",
-              style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.8),
-            ),
-          ],
-        ),
-      ),
-
-      // Body utama aplikasi
-      body: _notes.isEmpty
-          // Jika belum ada catatan, tampilkan teks
-          ? const Center(
-              child: Text(
-                "Belum ada catatan",
-                style: TextStyle(
-                    color: Color(0xFF8B7355),
-                    fontSize: 16,
-                    fontStyle: FontStyle.italic),
-              ),
-            )
-          // Jika ada catatan, tampilkan dalam ListView
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _notes.length,
-              itemBuilder: (context, index) {
-                final note = _notes[index];
-                return AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  margin: const EdgeInsets.only(bottom: 12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFF5E4),
-                    borderRadius: BorderRadius.circular(18),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.brown.withOpacity(0.15),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.all(15),
-                    // Judul catatan
-                    title: Text(
-                      note['title'] ?? '',
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 17,
-                          color: Color(0xFF5C4033)),
-                    ),
-                    // Isi catatan
-                    subtitle: Text(
-                      note['content'] ?? '',
-                      style: const TextStyle(
-                        color: Color(0xFF8B7355),
-                        height: 1.4,
-                      ),
-                    ),
-                    // Tombol hapus catatan
-                    trailing: IconButton(
-                      icon: const Icon(Icons.delete_outline_rounded,
-                          color: Color(0xFFB29470)),
-                      onPressed: () {
-                        setState(() {
-                          _notes.removeAt(index); // Hapus catatan
-                        });
-                      },
-                    ),
-                  ),
-                );
-              },
-            ),
-
-      // Tombol tambah catatan (Floating Action Button)
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color(0xFFB29470),
-        onPressed: _showAddNoteDialog, // Tampilkan dialog tambah catatan
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: const Icon(Icons.add_rounded, color: Colors.white, size: 28),
-      ),
     );
   }
 }
