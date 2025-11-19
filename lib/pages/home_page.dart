@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../services/prefs_service.dart';
 import '../services/database_service.dart';
 import '../models/note_model.dart';
+import '../main.dart'; // IMPORTANT! supaya bisa akses themeNotifier
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -20,7 +21,7 @@ class _HomePageState extends State<HomePage> {
 
   List<Note> _notes = [];
   bool _isLoading = true;
-  Note? _editingNote; // Untuk edit mode
+  Note? _editingNote;
 
   @override
   void initState() {
@@ -48,7 +49,6 @@ class _HomePageState extends State<HomePage> {
     }
 
     if (_editingNote == null) {
-      // CREATE - Tambah note baru
       final newNote = Note(
         title: _titleController.text,
         content: _contentController.text,
@@ -57,7 +57,6 @@ class _HomePageState extends State<HomePage> {
       );
       _database.insertNote(newNote);
     } else {
-      // UPDATE - Edit note existing
       final updatedNote = Note(
         id: _editingNote!.id,
         title: _titleController.text,
@@ -69,7 +68,7 @@ class _HomePageState extends State<HomePage> {
     }
 
     _resetForm();
-    _loadNotes(); // Reload data dari database
+    _loadNotes();
     Navigator.pop(context);
   }
 
@@ -82,7 +81,7 @@ class _HomePageState extends State<HomePage> {
 
   void _deleteNote(int id) async {
     await _database.deleteNote(id);
-    _loadNotes(); // Reload data
+    _loadNotes();
   }
 
   void _showNoteDetails(Note note) {
@@ -94,7 +93,7 @@ class _HomePageState extends State<HomePage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Tutup'),
+            child: const Text("Tutup"),
           ),
         ],
       ),
@@ -111,10 +110,10 @@ class _HomePageState extends State<HomePage> {
     showGeneralDialog(
       context: context,
       barrierDismissible: true,
-      barrierLabel: _editingNote == null ? "Tambah Catatan" : "Edit Catatan",
+      barrierLabel: "Note Dialog",
       barrierColor: Colors.black45,
       transitionDuration: const Duration(milliseconds: 300),
-      pageBuilder: (context, animation, secondaryAnimation) {
+      pageBuilder: (context, animation, secondary) {
         return BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
           child: Center(
@@ -122,11 +121,11 @@ class _HomePageState extends State<HomePage> {
               width: 350,
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: const Color(0xFFFFF8F0),
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.brown.withValues(alpha: 0.25),
+                    color: Colors.black26,
                     blurRadius: 12,
                     offset: const Offset(0, 6),
                   ),
@@ -139,56 +138,39 @@ class _HomePageState extends State<HomePage> {
                   children: [
                     Text(
                       _editingNote == null ? "Tambah Catatan" : "Edit Catatan",
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF5C4033),
-                      ),
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleLarge!
+                          .copyWith(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 15),
 
                     TextField(
                       controller: _titleController,
-                      decoration: InputDecoration(
+                      decoration: const InputDecoration(
                         labelText: "Judul",
                         filled: true,
-                        fillColor: const Color(0xFFFFF5E4),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
+                        border: OutlineInputBorder(),
                       ),
                     ),
+
                     const SizedBox(height: 10),
 
                     TextField(
                       controller: _contentController,
                       maxLines: 3,
-                      decoration: InputDecoration(
+                      decoration: const InputDecoration(
                         labelText: "Isi Catatan",
                         filled: true,
-                        fillColor: const Color(0xFFFFF5E4),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
+                        border: OutlineInputBorder(),
                       ),
                     ),
+
                     const SizedBox(height: 20),
 
                     ElevatedButton(
                       onPressed: _addOrUpdateNote,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFB29470),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15),
-                        ),
-                      ),
-                      child: Text(
-                        _editingNote == null ? "Simpan" : "Update",
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                        ),
-                      ),
+                      child: Text(_editingNote == null ? "Simpan" : "Update"),
                     ),
                   ],
                 ),
@@ -200,9 +182,19 @@ class _HomePageState extends State<HomePage> {
     ).then((_) => _resetForm());
   }
 
+  void _toggleTheme() {
+    final newValue = !prefs.isDarkMode;
+
+    prefs.setDarkMode(newValue);
+
+    themeNotifier.value = newValue;
+
+    setState(() {}); 
+  }
+
   void _logout() async {
     await prefs.clear();
-    await _database.deleteAllNotes(); // Hapus semua data user
+    await _database.deleteAllNotes();
     if (!mounted) return;
     Navigator.pushReplacementNamed(context, '/login');
   }
@@ -211,104 +203,99 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     final username = prefs.username;
 
+    final lastOpen = prefs.lastAppOpen;
+    final formatted =
+        "${lastOpen.day}/${lastOpen.month}/${lastOpen.year} ${lastOpen.hour}:${lastOpen.minute}";
+
     return Scaffold(
-      backgroundColor: const Color(0xFFFFF8F0),
       appBar: AppBar(
-        backgroundColor: const Color(0xFFB29470),
-        elevation: 0,
-        title: Text(
-          "Halo, $username 👋",
-          style: const TextStyle(color: Colors.white),
-        ),
+        title: Text("Halo, $username 👋"),
+
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout, color: Colors.white),
+            icon: Icon(
+              prefs.isDarkMode ? Icons.dark_mode : Icons.light_mode,
+            ),
+            onPressed: _toggleTheme,
+          ),
+
+          IconButton(
+            icon: const Icon(Icons.logout),
             onPressed: _logout,
           ),
         ],
       ),
+
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _notes.isEmpty
-          ? const Center(
-              child: Text(
-                "Belum ada catatan",
-                style: TextStyle(
-                  color: Color(0xFF8B7355),
-                  fontSize: 16,
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _notes.length,
-              itemBuilder: (context, index) {
-                final note = _notes[index];
-                return AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  margin: const EdgeInsets.only(bottom: 12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFF5E4),
-                    borderRadius: BorderRadius.circular(18),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.brown.withValues(alpha: 0.15),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: ListTile(
-                    title: Text(
-                      note.title,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 17,
-                        color: Color(0xFF5C4033),
-                      ),
+          : Column(
+              children: [
+                // LAST OPEN TIME
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surfaceVariant,
+                      borderRadius: BorderRadius.circular(16),
                     ),
-                    subtitle: Text(
-                      note.content.length > 100
-                          ? '${note.content.substring(0, 100)}...'
-                          : note.content,
-                      style: const TextStyle(
-                        color: Color(0xFF8B7355),
-                        height: 1.4,
-                      ),
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
+                    child: Row(
                       children: [
-                        IconButton(
-                          icon: const Icon(
-                            Icons.edit,
-                            color: Color(0xFFB29470),
-                          ),
-                          onPressed: () => _editNote(note),
-                        ),
-                        IconButton(
-                          icon: const Icon(
-                            Icons.delete,
-                            color: Color(0xFFB29470),
-                          ),
-                          onPressed: () => _deleteNote(note.id!),
-                        ),
+                        const Icon(Icons.access_time),
+                        const SizedBox(width: 10),
+                        Text("Terakhir dibuka: $formatted"),
                       ],
                     ),
-                    onTap: () => _showNoteDetails(note),
                   ),
-                );
-              },
+                ),
+
+                Expanded(
+                  child: _notes.isEmpty
+                      ? const Center(child: Text("Belum ada catatan"))
+                      : ListView.builder(
+                          itemCount: _notes.length,
+                          padding: const EdgeInsets.all(16),
+                          itemBuilder: (context, index) {
+                            final note = _notes[index];
+
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              child: ListTile(
+                                title: Text(note.title),
+                                subtitle: Text(
+                                  note.content.length > 100
+                                      ? "${note.content.substring(0, 100)}..."
+                                      : note.content,
+                                ),
+                                onTap: () => _showNoteDetails(note),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.edit),
+                                      onPressed: () => _editNote(note),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.delete),
+                                      onPressed: () =>
+                                          _deleteNote(note.id!),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
             ),
+
       floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color(0xFFB29470),
         onPressed: () {
           _resetForm();
           _showNoteDialog();
         },
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: const Icon(Icons.add_rounded, color: Colors.white, size: 28),
+        child: const Icon(Icons.add),
       ),
     );
   }

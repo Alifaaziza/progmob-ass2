@@ -4,43 +4,65 @@ import 'services/database_service.dart';
 import 'pages/login_page.dart';
 import 'pages/home_page.dart';
 
+// CONTROLLER GLOBAL UNTUK TEMA
+ValueNotifier<bool> themeNotifier = ValueNotifier(false);
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Inisialisasi SharedPreferences
   final prefs = PrefsService.instance;
   await prefs.init();
 
-  // Inisialisasi Database SQLite
-  final database = DatabaseService();
-  await database.database; // Memastikan database terinisialisasi
+  // masukan pilihan dark mode dari prefs ke notifier
+  themeNotifier.value = prefs.isDarkMode;
 
-  runApp(const SimpleNotesApp());
+  final database = DatabaseService();
+  await database.database;
+
+  runApp(SimpleNotesApp());
 }
 
 class SimpleNotesApp extends StatelessWidget {
-  const SimpleNotesApp({super.key});
+  SimpleNotesApp({super.key});
+  final prefs = PrefsService.instance;
 
   @override
   Widget build(BuildContext context) {
-    final prefs = PrefsService.instance;
+    return ValueListenableBuilder<bool>(
+      valueListenable: themeNotifier,
+      builder: (context, isDarkMode, _) {
+        return MaterialApp(
+          debugShowCheckedModeBanner: false,
+          title: "Simple Notes Login",
+          themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
 
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: "Simple Notes Login",
-      theme: ThemeData(
-        useMaterial3: true,
-        fontFamily: 'Poppins',
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFD2B48C),
-          primary: const Color(0xFFB29470),
-          secondary: const Color(0xFFF5E6CC),
-        ),
-      ),
-      initialRoute: prefs.isLoggedIn ? '/home' : '/login',
-      routes: {
-        '/login': (_) => const LoginPage(),
-        '/home': (_) => const HomePage(),
+          // ---- LIGHT MODE ----
+          theme: ThemeData(
+            useMaterial3: true,
+            brightness: Brightness.light,
+            fontFamily: 'Poppins',
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: const Color(0xFFD2B48C),
+            ),
+          ),
+
+          // ---- DARK MODE ----
+          darkTheme: ThemeData(
+            useMaterial3: true,
+            brightness: Brightness.dark,
+            fontFamily: 'Poppins',
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: Colors.brown,
+              brightness: Brightness.dark,
+            ),
+          ),
+
+          initialRoute: prefs.isLoggedIn ? '/home' : '/login',
+          routes: {
+            '/login': (_) => const LoginPage(),
+            '/home': (_) => const HomePage(),
+          },
+        );
       },
     );
   }
