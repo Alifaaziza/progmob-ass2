@@ -14,8 +14,8 @@ class _LoginPageState extends State<LoginPage> {
 
   bool _hide = true;
 
-  String? usernameError;   // pesan error username
-  String? passwordError;   // pesan error password
+  String? usernameError; // pesan error username
+  String? passwordError; // pesan error password
 
   // ----------- VALIDASI USERNAME -----------
   void validateUsername(String value) {
@@ -55,7 +55,7 @@ class _LoginPageState extends State<LoginPage> {
     await prefs.setUsername(_username.text.trim());
     await prefs.setPassword(_password.text.trim());
     await prefs.setLoggedIn(true);
-
+    if (!mounted) return;
     Navigator.pushReplacementNamed(context, '/home');
   }
 
@@ -72,10 +72,10 @@ class _LoginPageState extends State<LoginPage> {
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: Colors.brown.withOpacity(0.2),
+                color: Colors.brown.withValues(alpha: 0.2),
                 blurRadius: 8,
                 offset: const Offset(0, 4),
-              )
+              ),
             ],
           ),
           child: Column(
@@ -125,11 +125,8 @@ class _LoginPageState extends State<LoginPage> {
                     borderRadius: BorderRadius.circular(14),
                   ),
                   suffixIcon: IconButton(
-                    icon: Icon(_hide
-                        ? Icons.visibility_off
-                        : Icons.visibility),
-                    onPressed: () =>
-                        setState(() => _hide = !_hide),
+                    icon: Icon(_hide ? Icons.visibility_off : Icons.visibility),
+                    onPressed: () => setState(() => _hide = !_hide),
                   ),
                   errorText: passwordError,
                 ),
@@ -144,16 +141,19 @@ class _LoginPageState extends State<LoginPage> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFB29470),
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 40, vertical: 12),
+                      horizontal: 40,
+                      vertical: 12,
+                    ),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
                   child: const Text(
                     "Login",
                     style: TextStyle(color: Colors.white, fontSize: 16),
                   ),
                 ),
-              )
+              ),
             ],
           ),
         ),

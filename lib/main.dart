@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'services/prefs_service.dart';
+import 'services/database_service.dart';
 import 'pages/login_page.dart';
 import 'pages/home_page.dart';
 
@@ -9,6 +10,10 @@ void main() async {
   // Inisialisasi SharedPreferences
   final prefs = PrefsService.instance;
   await prefs.init();
+
+  // Inisialisasi Database SQLite
+  final database = DatabaseService();
+  await database.database; // Memastikan database terinisialisasi
 
   runApp(const SimpleNotesApp());
 }
