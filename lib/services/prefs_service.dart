@@ -34,12 +34,6 @@ class PrefsService {
   Future<void> setLastAppOpen(DateTime value) async =>
       await _prefs.setInt('last_app_open', value.millisecondsSinceEpoch);
 
-  // SORT PREFERENCE 
-  String get sortPreference =>
-      _prefs.getString('sort_preference') ?? 'updated_desc';
-
-  Future<void> setSortPreference(String value) async =>
-      await _prefs.setString('sort_preference', value);
 
   // DARK MODE 
   bool get isDarkMode => _prefs.getBool('dark_mode') ?? false;
