@@ -3,6 +3,9 @@ import 'services/prefs_service.dart';
 import 'services/database_service.dart';
 import 'pages/login_page.dart';
 import 'pages/home_page.dart';
+import 'models/todo.dart';
+import 'pages/add_todo_page.dart';
+
 
 // CONTROLLER GLOBAL UNTUK TEMA
 ValueNotifier<bool> themeNotifier = ValueNotifier(false);

@@ -1,9 +1,14 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
+
+
 import '../services/prefs_service.dart';
 import '../services/database_service.dart';
 import '../models/note_model.dart';
-import '../main.dart'; // IMPORTANT! supaya bisa akses themeNotifier
+import '../models/todo.dart';
+import '../pages/add_todo_page.dart';
+import '../main.dart'; // themeNotifier
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -16,10 +21,13 @@ class _HomePageState extends State<HomePage> {
   final PrefsService prefs = PrefsService.instance;
   final DatabaseService _database = DatabaseService();
 
+  // NOTE CONTROLLER
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _contentController = TextEditingController();
 
+  // STATE
   List<Note> _notes = [];
+  List<Todo> _todos = [];
   bool _isLoading = true;
   Note? _editingNote;
 
@@ -43,10 +51,11 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  // =========================
+  // NOTE SECTION
+  // =========================
   void _addOrUpdateNote() {
-    if (_titleController.text.isEmpty && _contentController.text.isEmpty) {
-      return;
-    }
+    if (_titleController.text.isEmpty && _contentController.text.isEmpty) return;
 
     if (_editingNote == null) {
       final newNote = Note(
@@ -84,22 +93,6 @@ class _HomePageState extends State<HomePage> {
     _loadNotes();
   }
 
-  void _showNoteDetails(Note note) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(note.title),
-        content: SingleChildScrollView(child: Text(note.content)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Tutup"),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _resetForm() {
     _titleController.clear();
     _contentController.clear();
@@ -123,57 +116,34 @@ class _HomePageState extends State<HomePage> {
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black26,
-                    blurRadius: 12,
-                    offset: const Offset(0, 6),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _editingNote == null ? "Tambah Catatan" : "Edit Catatan",
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleLarge!
+                        .copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 15),
+                  TextField(
+                    controller: _titleController,
+                    decoration: const InputDecoration(labelText: "Judul"),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: _contentController,
+                    maxLines: 3,
+                    decoration: const InputDecoration(labelText: "Isi"),
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: _addOrUpdateNote,
+                    child: Text(_editingNote == null ? "Simpan" : "Update"),
                   ),
                 ],
-              ),
-              child: Material(
-                color: Colors.transparent,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      _editingNote == null ? "Tambah Catatan" : "Edit Catatan",
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleLarge!
-                          .copyWith(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 15),
-
-                    TextField(
-                      controller: _titleController,
-                      decoration: const InputDecoration(
-                        labelText: "Judul",
-                        filled: true,
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    TextField(
-                      controller: _contentController,
-                      maxLines: 3,
-                      decoration: const InputDecoration(
-                        labelText: "Isi Catatan",
-                        filled: true,
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    ElevatedButton(
-                      onPressed: _addOrUpdateNote,
-                      child: Text(_editingNote == null ? "Simpan" : "Update"),
-                    ),
-                  ],
-                ),
               ),
             ),
           ),
@@ -182,14 +152,22 @@ class _HomePageState extends State<HomePage> {
     ).then((_) => _resetForm());
   }
 
+  // =========================
+  // TODO + LOCATION
+  // =========================
+  Future<void> _addTodoWithLocation(Todo todo) async {
+    setState(() {
+      _todos.add(todo);
+    });
+  }
+
+  // =========================
+  // THEME & LOGOUT
+  // =========================
   void _toggleTheme() {
     final newValue = !prefs.isDarkMode;
-
     prefs.setDarkMode(newValue);
-
     themeNotifier.value = newValue;
-
-    setState(() {}); 
   }
 
   void _logout() async {
@@ -202,7 +180,6 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     final username = prefs.username;
-
     final lastOpen = prefs.lastAppOpen;
     final formatted =
         "${lastOpen.day}/${lastOpen.month}/${lastOpen.year} ${lastOpen.hour}:${lastOpen.minute}";
@@ -210,15 +187,12 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       appBar: AppBar(
         title: Text("Halo, $username 👋"),
-
         actions: [
           IconButton(
-            icon: Icon(
-              prefs.isDarkMode ? Icons.dark_mode : Icons.light_mode,
-            ),
+            icon:
+                Icon(prefs.isDarkMode ? Icons.dark_mode : Icons.light_mode),
             onPressed: _toggleTheme,
           ),
-
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: _logout,
@@ -228,74 +202,77 @@ class _HomePageState extends State<HomePage> {
 
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : Column(
+          : ListView(
+              padding: const EdgeInsets.all(16),
               children: [
-                // LAST OPEN TIME
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surfaceVariant,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.access_time),
-                        const SizedBox(width: 10),
-                        Text("Terakhir dibuka: $formatted"),
-                      ],
+                // LAST OPEN
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceVariant,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.access_time),
+                      const SizedBox(width: 10),
+                      Text("Terakhir dibuka: $formatted"),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                // TODO SECTION
+                Text("Todo + Lokasi",
+                    style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 10),
+
+                ..._todos.map(
+                  (todo) => Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.location_on),
+                      title: Text(todo.title),
+                      subtitle: Text(todo.address),
                     ),
                   ),
                 ),
 
-                Expanded(
-                  child: _notes.isEmpty
-                      ? const Center(child: Text("Belum ada catatan"))
-                      : ListView.builder(
-                          itemCount: _notes.length,
-                          padding: const EdgeInsets.all(16),
-                          itemBuilder: (context, index) {
-                            final note = _notes[index];
+                const SizedBox(height: 30),
 
-                            return Card(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              child: ListTile(
-                                title: Text(note.title),
-                                subtitle: Text(
-                                  note.content.length > 100
-                                      ? "${note.content.substring(0, 100)}..."
-                                      : note.content,
-                                ),
-                                onTap: () => _showNoteDetails(note),
-                                trailing: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      icon: const Icon(Icons.edit),
-                                      onPressed: () => _editNote(note),
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.delete),
-                                      onPressed: () =>
-                                          _deleteNote(note.id!),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
+                // NOTE SECTION
+                Text("Catatan",
+                    style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 10),
+
+                ..._notes.map(
+                  (note) => Card(
+                    child: ListTile(
+                      title: Text(note.title),
+                      subtitle: Text(
+                        note.content.length > 100
+                            ? "${note.content.substring(0, 100)}..."
+                            : note.content,
+                      ),
+                      onTap: () => _editNote(note),
+                    ),
+                  ),
                 ),
               ],
             ),
 
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          _resetForm();
-          _showNoteDialog();
-        },
         child: const Icon(Icons.add),
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AddTodoPage(
+                onAdd: _addTodoWithLocation,
+              ),
+            ),
+          );
+        },
       ),
     );
   }
