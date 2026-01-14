@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:intl/intl.dart';
 
 import '../models/todo.dart';
 import '../services/location_service.dart';
@@ -21,12 +22,14 @@ class _AddTodoPageState extends State<AddTodoPage> {
   String? _address;
   bool _loading = false;
 
+  // STATE TANGGAL
+  DateTime _selectedDate = DateTime.now();
+
+  // ================= PICK LOCATION =================
   Future<void> _pickLocation() async {
     final result = await Navigator.push<LatLng>(
       context,
-      MaterialPageRoute(
-        builder: (_) => const PickLocationPage(),
-      ),
+      MaterialPageRoute(builder: (_) => const PickLocationPage()),
     );
 
     if (result != null) {
@@ -37,6 +40,23 @@ class _AddTodoPageState extends State<AddTodoPage> {
     }
   }
 
+  // ================= PICK DATE =================
+  Future<void> _pickDate(BuildContext context) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+
+    if (picked != null) {
+      setState(() {
+        _selectedDate = picked;
+      });
+    }
+  }
+
+  // ================= SAVE TODO =================
   Future<void> _saveTodo() async {
     if (_titleController.text.isEmpty || _pickedLocation == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -57,26 +77,33 @@ class _AddTodoPageState extends State<AddTodoPage> {
       address: _address!,
       latitude: _pickedLocation!.latitude,
       longitude: _pickedLocation!.longitude,
+      date: _selectedDate, // ✅ FIX
     );
 
     widget.onAdd(todo);
 
     if (!mounted) return;
+
+    setState(() => _loading = false);
     Navigator.pop(context);
   }
 
   @override
+  void dispose() {
+    _titleController.dispose();
+    super.dispose();
+  }
+
+  // ================= UI =================
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Tambah Todo + Lokasi'),
-      ),
+      appBar: AppBar(title: const Text('Tambah Todo + Lokasi')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // JUDUL TODO
             TextField(
               controller: _titleController,
               decoration: const InputDecoration(
@@ -87,7 +114,17 @@ class _AddTodoPageState extends State<AddTodoPage> {
 
             const SizedBox(height: 16),
 
-            // PILIH LOKASI
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                'Tanggal: ${DateFormat('dd MMM yyyy').format(_selectedDate)}',
+              ),
+              trailing: const Icon(Icons.calendar_today),
+              onTap: () => _pickDate(context),
+            ),
+
+            const SizedBox(height: 8),
+
             ElevatedButton.icon(
               onPressed: _pickLocation,
               icon: const Icon(Icons.map),
@@ -96,25 +133,17 @@ class _AddTodoPageState extends State<AddTodoPage> {
 
             const SizedBox(height: 12),
 
-            // INFO LOKASI
             if (_pickedLocation != null)
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Latitude: ${_pickedLocation!.latitude}',
-                    style: const TextStyle(fontSize: 13),
-                  ),
-                  Text(
-                    'Longitude: ${_pickedLocation!.longitude}',
-                    style: const TextStyle(fontSize: 13),
-                  ),
+                  Text('Latitude: ${_pickedLocation!.latitude}'),
+                  Text('Longitude: ${_pickedLocation!.longitude}'),
                 ],
               ),
 
             const Spacer(),
 
-            // SIMPAN
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(

@@ -1,14 +1,15 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
-
+import 'package:provider/provider.dart';
 
 import '../services/prefs_service.dart';
-import '../services/database_service.dart';
 import '../models/note_model.dart';
 import '../models/todo.dart';
 import '../pages/add_todo_page.dart';
-import '../main.dart'; // themeNotifier
+import '../pages/CalendarPage.dart';
+import '../pages/map_page.dart';
+import '../providers/home_provider.dart';
+import '../main.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -19,146 +20,35 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final PrefsService prefs = PrefsService.instance;
-  final DatabaseService _database = DatabaseService();
 
   // NOTE CONTROLLER
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _contentController = TextEditingController();
 
-  // STATE
   List<Note> _notes = [];
-  List<Todo> _todos = [];
   bool _isLoading = true;
   Note? _editingNote;
 
   @override
   void initState() {
     super.initState();
-    _loadNotes();
     _updateLastAppOpen();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<HomeProvider>().loadTodos();
+      context.read<HomeProvider>().checkNearbyTodos();
+    });
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _contentController.dispose();
+    super.dispose();
   }
 
   void _updateLastAppOpen() {
     prefs.setLastAppOpen(DateTime.now());
-  }
-
-  Future<void> _loadNotes() async {
-    setState(() => _isLoading = true);
-    final notes = await _database.getNotes();
-    setState(() {
-      _notes = notes;
-      _isLoading = false;
-    });
-  }
-
-  // =========================
-  // NOTE SECTION
-  // =========================
-  void _addOrUpdateNote() {
-    if (_titleController.text.isEmpty && _contentController.text.isEmpty) return;
-
-    if (_editingNote == null) {
-      final newNote = Note(
-        title: _titleController.text,
-        content: _contentController.text,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-      _database.insertNote(newNote);
-    } else {
-      final updatedNote = Note(
-        id: _editingNote!.id,
-        title: _titleController.text,
-        content: _contentController.text,
-        createdAt: _editingNote!.createdAt,
-        updatedAt: DateTime.now(),
-      );
-      _database.updateNote(updatedNote);
-    }
-
-    _resetForm();
-    _loadNotes();
-    Navigator.pop(context);
-  }
-
-  void _editNote(Note note) {
-    _editingNote = note;
-    _titleController.text = note.title;
-    _contentController.text = note.content;
-    _showNoteDialog();
-  }
-
-  void _deleteNote(int id) async {
-    await _database.deleteNote(id);
-    _loadNotes();
-  }
-
-  void _resetForm() {
-    _titleController.clear();
-    _contentController.clear();
-    _editingNote = null;
-  }
-
-  void _showNoteDialog() {
-    showGeneralDialog(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: "Note Dialog",
-      barrierColor: Colors.black45,
-      transitionDuration: const Duration(milliseconds: 300),
-      pageBuilder: (context, animation, secondary) {
-        return BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
-          child: Center(
-            child: Container(
-              width: 350,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    _editingNote == null ? "Tambah Catatan" : "Edit Catatan",
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleLarge!
-                        .copyWith(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 15),
-                  TextField(
-                    controller: _titleController,
-                    decoration: const InputDecoration(labelText: "Judul"),
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: _contentController,
-                    maxLines: 3,
-                    decoration: const InputDecoration(labelText: "Isi"),
-                  ),
-                  const SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: _addOrUpdateNote,
-                    child: Text(_editingNote == null ? "Simpan" : "Update"),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    ).then((_) => _resetForm());
-  }
-
-  // =========================
-  // TODO + LOCATION
-  // =========================
-  Future<void> _addTodoWithLocation(Todo todo) async {
-    setState(() {
-      _todos.add(todo);
-    });
   }
 
   // =========================
@@ -172,9 +62,17 @@ class _HomePageState extends State<HomePage> {
 
   void _logout() async {
     await prefs.clear();
-    await _database.deleteAllNotes();
     if (!mounted) return;
     Navigator.pushReplacementNamed(context, '/login');
+  }
+
+  void openMap(double lat, double lng) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MapPage(latitude: lat, longitude: lng),
+      ),
+    );
   }
 
   @override
@@ -186,80 +84,90 @@ class _HomePageState extends State<HomePage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text("Halo, $username 👋"),
+        title: Text("Halo, $username"),
         actions: [
           IconButton(
-            icon:
-                Icon(prefs.isDarkMode ? Icons.dark_mode : Icons.light_mode),
+            icon: Icon(prefs.isDarkMode ? Icons.dark_mode : Icons.light_mode),
             onPressed: _toggleTheme,
           ),
+          IconButton(icon: const Icon(Icons.logout), onPressed: _logout),
           IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: _logout,
+            icon: const Icon(Icons.calendar_month),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const CalendarPage()),
+              );
+            },
           ),
         ],
       ),
 
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                // LAST OPEN
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceVariant,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.access_time),
-                      const SizedBox(width: 10),
-                      Text("Terakhir dibuka: $formatted"),
-                    ],
-                  ),
+      body: Consumer<HomeProvider>(
+        builder: (context, provider, _) {
+          return ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              // LAST OPEN
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(16),
                 ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.access_time),
+                    const SizedBox(width: 10),
+                    Text("Terakhir dibuka: $formatted"),
+                  ],
+                ),
+              ),
 
-                const SizedBox(height: 20),
+              const SizedBox(height: 20),
 
-                // TODO SECTION
-                Text("Todo + Lokasi",
-                    style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: 10),
+              // TODO SECTION
+              Text(
+                "Todo + Lokasi",
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 10),
 
-                ..._todos.map(
-                  (todo) => Card(
-                    child: ListTile(
-                      leading: const Icon(Icons.location_on),
-                      title: Text(todo.title),
-                      subtitle: Text(todo.address),
+              if (provider.todos.isEmpty) const Text("Belum ada todo"),
+
+              ...provider.todos.map(
+                (todo) => Card(
+                  child: ListTile(
+                    leading: Checkbox(
+                      value: todo.isDone,
+                      onChanged: (_) {
+                        provider.toggleTodoDone(todo);
+                      },
                     ),
-                  ),
-                ),
-
-                const SizedBox(height: 30),
-
-                // NOTE SECTION
-                Text("Catatan",
-                    style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: 10),
-
-                ..._notes.map(
-                  (note) => Card(
-                    child: ListTile(
-                      title: Text(note.title),
-                      subtitle: Text(
-                        note.content.length > 100
-                            ? "${note.content.substring(0, 100)}..."
-                            : note.content,
+                    title: Text(
+                      todo.title,
+                      style: TextStyle(
+                        decoration: todo.isDone
+                            ? TextDecoration.lineThrough
+                            : null,
                       ),
-                      onTap: () => _editNote(note),
+                    ),
+                    subtitle: Text(todo.address ?? '-'),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.location_on),
+                      onPressed: () {
+                        if (todo.latitude != null && todo.longitude != null) {
+                          openMap(todo.latitude!, todo.longitude!);
+                        }
+                      },
                     ),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
+          );
+        },
+      ),
 
       floatingActionButton: FloatingActionButton(
         child: const Icon(Icons.add),
@@ -268,7 +176,11 @@ class _HomePageState extends State<HomePage> {
             context,
             MaterialPageRoute(
               builder: (_) => AddTodoPage(
-                onAdd: _addTodoWithLocation,
+                onAdd: (todo) async {
+                  final provider = context.read<HomeProvider>();
+                  await provider.database.insertTodo(todo);
+                  await provider.loadTodos();
+                },
               ),
             ),
           );

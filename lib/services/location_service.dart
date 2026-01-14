@@ -30,9 +30,18 @@ class LocationService {
     );
   }
 
+  // HITUNG JARAK (meter)
+  static double calculateDistance(
+    double lat1,
+    double lon1,
+    double lat2,
+    double lon2,
+  ) {
+    return Geolocator.distanceBetween(lat1, lon1, lat2, lon2);
+  }
+
   static Future<String> getAddress(double lat, double lng) async {
-    List<Placemark> placemarks =
-        await placemarkFromCoordinates(lat, lng);
+    List<Placemark> placemarks = await placemarkFromCoordinates(lat, lng);
 
     if (placemarks.isNotEmpty) {
       final place = placemarks.first;
