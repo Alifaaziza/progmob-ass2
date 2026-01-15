@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:provider/provider.dart';
 
 import '../models/todo.dart';
-import '../services/location_service.dart';
-import 'pick_location_page.dart';
+import '../pages/pick_location_page.dart';
+import '../providers/home_provider.dart';
 
 class AddTodoPage extends StatefulWidget {
-  final Function(Todo) onAdd;
-
-  const AddTodoPage({super.key, required this.onAdd});
+  const AddTodoPage({super.key});
 
   @override
   State<AddTodoPage> createState() => _AddTodoPageState();
@@ -19,10 +18,7 @@ class _AddTodoPageState extends State<AddTodoPage> {
   final TextEditingController _titleController = TextEditingController();
 
   LatLng? _pickedLocation;
-  String? _address;
   bool _loading = false;
-
-  // STATE TANGGAL
   DateTime _selectedDate = DateTime.now();
 
   // ================= PICK LOCATION =================
@@ -35,13 +31,12 @@ class _AddTodoPageState extends State<AddTodoPage> {
     if (result != null) {
       setState(() {
         _pickedLocation = result;
-        _address = null;
       });
     }
   }
 
   // ================= PICK DATE =================
-  Future<void> _pickDate(BuildContext context) async {
+  Future<void> _pickDate() async {
     final picked = await showDatePicker(
       context: context,
       initialDate: _selectedDate,
@@ -50,9 +45,7 @@ class _AddTodoPageState extends State<AddTodoPage> {
     );
 
     if (picked != null) {
-      setState(() {
-        _selectedDate = picked;
-      });
+      setState(() => _selectedDate = picked);
     }
   }
 
@@ -67,24 +60,24 @@ class _AddTodoPageState extends State<AddTodoPage> {
 
     setState(() => _loading = true);
 
-    _address = await LocationService.getAddress(
+    final homeProvider = context.read<HomeProvider>();
+
+    final address = await homeProvider.locationService.getAddress(
       _pickedLocation!.latitude,
       _pickedLocation!.longitude,
     );
 
     final todo = Todo(
       title: _titleController.text,
-      address: _address!,
+      address: address,
       latitude: _pickedLocation!.latitude,
       longitude: _pickedLocation!.longitude,
-      date: _selectedDate, // ✅ FIX
+      date: _selectedDate,
     );
 
-    widget.onAdd(todo);
+    await homeProvider.addTodo(todo);
 
     if (!mounted) return;
-
-    setState(() => _loading = false);
     Navigator.pop(context);
   }
 
@@ -111,7 +104,6 @@ class _AddTodoPageState extends State<AddTodoPage> {
                 border: OutlineInputBorder(),
               ),
             ),
-
             const SizedBox(height: 16),
 
             ListTile(
@@ -120,7 +112,7 @@ class _AddTodoPageState extends State<AddTodoPage> {
                 'Tanggal: ${DateFormat('dd MMM yyyy').format(_selectedDate)}',
               ),
               trailing: const Icon(Icons.calendar_today),
-              onTap: () => _pickDate(context),
+              onTap: _pickDate,
             ),
 
             const SizedBox(height: 8),
@@ -134,12 +126,8 @@ class _AddTodoPageState extends State<AddTodoPage> {
             const SizedBox(height: 12),
 
             if (_pickedLocation != null)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Latitude: ${_pickedLocation!.latitude}'),
-                  Text('Longitude: ${_pickedLocation!.longitude}'),
-                ],
+              Text(
+                '📍 ${_pickedLocation!.latitude}, ${_pickedLocation!.longitude}',
               ),
 
             const Spacer(),

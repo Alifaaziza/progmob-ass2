@@ -2,7 +2,10 @@ import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 
 class LocationService {
-  static Future<Position> getCurrentLocation() async {
+  // =========================
+  // 📍 GET CURRENT LOCATION
+  // =========================
+  Future<Position> getCurrentLocation() async {
     bool serviceEnabled;
     LocationPermission permission;
 
@@ -30,18 +33,18 @@ class LocationService {
     );
   }
 
-  // HITUNG JARAK (meter)
-  static double calculateDistance(
-    double lat1,
-    double lon1,
-    double lat2,
-    double lon2,
-  ) {
+  // =========================
+  // 📏 HITUNG JARAK (meter)
+  // =========================
+  double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
     return Geolocator.distanceBetween(lat1, lon1, lat2, lon2);
   }
 
-  static Future<String> getAddress(double lat, double lng) async {
-    List<Placemark> placemarks = await placemarkFromCoordinates(lat, lng);
+  // =========================
+  // 🏠 GET ADDRESS
+  // =========================
+  Future<String> getAddress(double lat, double lng) async {
+    final placemarks = await placemarkFromCoordinates(lat, lng);
 
     if (placemarks.isNotEmpty) {
       final place = placemarks.first;

@@ -3,6 +3,10 @@ import 'package:provider/provider.dart';
 
 import 'services/prefs_service.dart';
 import 'services/database_service.dart';
+import 'services/notification_service.dart';
+import 'services/location_service.dart';
+import 'services/location_monitor_service.dart';
+import 'utils/location_checker.dart';
 
 import 'providers/home_provider.dart';
 
@@ -22,10 +26,35 @@ void main() async {
   final database = DatabaseService();
   await database.database;
 
+  // 🔔 Notification
+  final notificationService = NotificationService();
+  await notificationService.init();
+
+  // 📍 Location
+  final locationService = LocationService();
+
+  // 👀 Monitor lokasi
+  final locationMonitorService = LocationMonitorService(
+    locationService: locationService,
+    notificationService: notificationService,
+  );
+
+  // 🔎 Checker manual (kalau dipakai)
+  final locationChecker = LocationChecker(
+    notificationService: notificationService,
+  );
+
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => HomeProvider(database: database)),
+        ChangeNotifierProvider(
+          create: (_) => HomeProvider(
+            database: database,
+            locationService: locationService,
+            locationMonitorService: locationMonitorService,
+            locationChecker: locationChecker,
+          ),
+        ),
       ],
       child: const SimpleNotesApp(),
     ),
