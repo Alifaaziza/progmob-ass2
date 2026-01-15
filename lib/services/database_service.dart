@@ -114,11 +114,12 @@ class DatabaseService {
     return await db.delete('todos', where: 'id = ?', whereArgs: [id]);
   }
 
+  // UPDATE (full todo) - SUDAH ADA
   Future<void> updateTodo(Todo todo) async {
     final db = await database;
     await db.update(
       'todos',
-      todo.toMap(),
+      todo.toMap(), // Pastikan toMap() sudah mengupdate updated_at
       where: 'id = ?',
       whereArgs: [todo.id],
     );

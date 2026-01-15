@@ -1,15 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
-
+import 'package:geocoding/geocoding.dart';
 import '../models/todo.dart';
 import '../services/location_service.dart';
 import 'pick_location_page.dart';
 
 class AddTodoPage extends StatefulWidget {
   final Function(Todo) onAdd;
+  final Todo? todoToEdit; // TAMBAHKAN INI: parameter untuk edit
 
-  const AddTodoPage({super.key, required this.onAdd});
+  const AddTodoPage({
+    super.key, 
+    required this.onAdd,
+    this.todoToEdit, // TAMBAHKAN INI
+  });
 
   @override
   State<AddTodoPage> createState() => _AddTodoPageState();
@@ -24,6 +29,26 @@ class _AddTodoPageState extends State<AddTodoPage> {
 
   // STATE TANGGAL
   DateTime _selectedDate = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+    
+    // TAMBAHKAN INI: Isi form dengan data todoToEdit jika ada
+    if (widget.todoToEdit != null) {
+      _titleController.text = widget.todoToEdit!.title;
+      _selectedDate = widget.todoToEdit!.date ?? DateTime.now();
+      
+      if (widget.todoToEdit!.latitude != null && 
+          widget.todoToEdit!.longitude != null) {
+        _pickedLocation = LatLng(
+          widget.todoToEdit!.latitude!,
+          widget.todoToEdit!.longitude!,
+        );
+        _address = widget.todoToEdit!.address;
+      }
+    }
+  }
 
   // ================= PICK LOCATION =================
   Future<void> _pickLocation() async {
@@ -67,17 +92,31 @@ class _AddTodoPageState extends State<AddTodoPage> {
 
     setState(() => _loading = true);
 
-    _address = await LocationService.getAddress(
-      _pickedLocation!.latitude,
-      _pickedLocation!.longitude,
-    );
+    // Hanya ambil alamat baru jika lokasi berubah atau belum ada alamat
+    try {
+  final placemarks = await placemarkFromCoordinates(
+    _pickedLocation!.latitude,
+    _pickedLocation!.longitude,
+  );
+  if (placemarks.isNotEmpty) {
+    final placemark = placemarks.first;
+    _address = '${placemark.street}, ${placemark.subLocality}, ${placemark.locality}';
+  } else {
+    _address = '${_pickedLocation!.latitude}, ${_pickedLocation!.longitude}';
+  }
+} catch (e) {
+  _address = '${_pickedLocation!.latitude}, ${_pickedLocation!.longitude}';
+}
 
+    // TAMBAHKAN INI: Buat todo dengan ID lama jika edit
     final todo = Todo(
+      id: widget.todoToEdit?.id, // Simpan ID lama jika edit
       title: _titleController.text,
       address: _address!,
       latitude: _pickedLocation!.latitude,
       longitude: _pickedLocation!.longitude,
       date: _selectedDate, // ✅ FIX
+      isDone: widget.todoToEdit?.isDone ?? false, // Pertahankan status isDone
     );
 
     widget.onAdd(todo);
@@ -98,7 +137,10 @@ class _AddTodoPageState extends State<AddTodoPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Tambah Todo + Lokasi')),
+      // TAMBAHKAN INI: Judul dinamis berdasarkan mode
+      appBar: AppBar(
+        title: Text(widget.todoToEdit != null ? 'Edit Todo' : 'Tambah Todo'),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -142,6 +184,16 @@ class _AddTodoPageState extends State<AddTodoPage> {
                 ],
               ),
 
+            // TAMBAHKAN INI: Tampilkan alamat lama jika mode edit
+            if (_address != null && widget.todoToEdit != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  'Lokasi: $_address',
+                  style: const TextStyle(fontStyle: FontStyle.italic),
+                ),
+              ),
+
             const Spacer(),
 
             SizedBox(
@@ -150,7 +202,8 @@ class _AddTodoPageState extends State<AddTodoPage> {
                 onPressed: _loading ? null : _saveTodo,
                 child: _loading
                     ? const CircularProgressIndicator()
-                    : const Text('Simpan Todo'),
+                    // TAMBAHKAN INI: Teks dinamis berdasarkan mode
+                    : Text(widget.todoToEdit != null ? 'Update Todo' : 'Simpan Todo'),
               ),
             ),
           ],

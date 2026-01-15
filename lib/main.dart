@@ -25,7 +25,7 @@ void main() async {
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => HomeProvider(database: database)),
+        ChangeNotifierProvider(create: (_) => HomeProvider()),
       ],
       child: const SimpleNotesApp(),
     ),

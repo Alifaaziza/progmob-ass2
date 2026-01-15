@@ -1,53 +1,36 @@
-import 'package:geolocator/geolocator.dart';
+// lib/services/location_service.dart
 import 'package:geocoding/geocoding.dart';
 
 class LocationService {
-  static Future<Position> getCurrentLocation() async {
-    bool serviceEnabled;
-    LocationPermission permission;
-
-    // cek GPS aktif atau tidak
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      throw Exception('Location service belum aktif');
-    }
-
-    // cek permission
-    permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        throw Exception('Izin lokasi ditolak');
-      }
-    }
-
-    if (permission == LocationPermission.deniedForever) {
-      throw Exception('Izin lokasi ditolak permanen');
-    }
-
-    return await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.high,
-    );
-  }
-
-  // HITUNG JARAK (meter)
-  static double calculateDistance(
-    double lat1,
-    double lon1,
-    double lat2,
-    double lon2,
-  ) {
-    return Geolocator.distanceBetween(lat1, lon1, lat2, lon2);
-  }
-
   static Future<String> getAddress(double lat, double lng) async {
-    List<Placemark> placemarks = await placemarkFromCoordinates(lat, lng);
-
-    if (placemarks.isNotEmpty) {
-      final place = placemarks.first;
-      return "${place.street}, ${place.locality}, ${place.country}";
+    try {
+      final placemarks = await placemarkFromCoordinates(lat, lng);
+      if (placemarks.isNotEmpty) {
+        final placemark = placemarks.first;
+        
+        String address = '';
+        if (placemark.street != null && placemark.street!.isNotEmpty) {
+          address += placemark.street!;
+        }
+        if (placemark.subLocality != null && placemark.subLocality!.isNotEmpty) {
+          if (address.isNotEmpty) address += ', ';
+          address += placemark.subLocality!;
+        }
+        if (placemark.locality != null && placemark.locality!.isNotEmpty) {
+          if (address.isNotEmpty) address += ', ';
+          address += placemark.locality!;
+        }
+        if (placemark.country != null && placemark.country!.isNotEmpty) {
+          if (address.isNotEmpty) address += ', ';
+          address += placemark.country!;
+        }
+        
+        return address;
+      }
+      return '$lat, $lng';
+    } catch (e) {
+      print('Error get address: $e');
+      return '$lat, $lng';
     }
-
-    return "Alamat tidak ditemukan";
   }
 }
