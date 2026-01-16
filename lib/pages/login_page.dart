@@ -29,31 +29,18 @@ class _LoginPageState extends State<LoginPage> {
     setState(() {});
   }
 
-  // ----------- VALIDASI PASSWORD -----------
-  void validatePassword(String value) {
-    if (value.isEmpty) {
-      passwordError = "Password tidak boleh kosong";
-    } else if (value.length < 6) {
-      passwordError = "Minimal 6 karakter";
-    } else {
-      passwordError = null;
-    }
-    setState(() {});
-  }
-
   // ----------- LOGIN -----------
   void _login() async {
     // Pastikan validasi tidak error
     validateUsername(_username.text);
-    validatePassword(_password.text);
 
-    if (usernameError != null || passwordError != null) {
+    if (usernameError != null) {
       return; // Stop login kalau ada error
     }
 
     final prefs = PrefsService.instance;
     await prefs.setUsername(_username.text.trim());
-    await prefs.setPassword(_password.text.trim());
+
     await prefs.setLoggedIn(true);
     if (!mounted) return;
     Navigator.pushReplacementNamed(context, '/home');
@@ -84,7 +71,7 @@ class _LoginPageState extends State<LoginPage> {
             children: [
               const Center(
                 child: Text(
-                  "Login",
+                  "Nickname",
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
@@ -112,28 +99,7 @@ class _LoginPageState extends State<LoginPage> {
 
               const SizedBox(height: 8),
 
-              // ================= PASSWORD FIELD =================
-              TextField(
-                controller: _password,
-                obscureText: _hide,
-                onChanged: validatePassword,
-                decoration: InputDecoration(
-                  labelText: "Password",
-                  filled: true,
-                  fillColor: const Color(0xFFFFF5E4),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  suffixIcon: IconButton(
-                    icon: Icon(_hide ? Icons.visibility_off : Icons.visibility),
-                    onPressed: () => setState(() => _hide = !_hide),
-                  ),
-                  errorText: passwordError,
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
+          
               // ================= LOGIN BUTTON =================
               Center(
                 child: ElevatedButton(
@@ -149,7 +115,7 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                   child: const Text(
-                    "Login",
+                    "save",
                     style: TextStyle(color: Colors.white, fontSize: 16),
                   ),
                 ),

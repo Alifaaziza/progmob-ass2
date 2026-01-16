@@ -141,6 +141,27 @@ class _HomePageState extends State<HomePage> {
     return Colors.grey;
   }
 
+  // Helper untuk icon cuaca berdasarkan kondisi
+  IconData _getWeatherIcon(String description) {
+    final desc = description.toLowerCase();
+    
+    if (desc.contains('cerah') || desc.contains('clear')) {
+      return Icons.wb_sunny;
+    } else if (desc.contains('awan') || desc.contains('cloud')) {
+      return Icons.cloud;
+    } else if (desc.contains('hujan') || desc.contains('rain')) {
+      return Icons.water_drop;
+    } else if (desc.contains('petir') || desc.contains('thunder')) {
+      return Icons.thunderstorm;
+    } else if (desc.contains('kabut') || desc.contains('fog') || desc.contains('mist')) {
+      return Icons.foggy;
+    } else if (desc.contains('salju') || desc.contains('snow')) {
+      return Icons.ac_unit;
+    } else {
+      return Icons.cloud;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final username = prefs.username;
@@ -199,7 +220,7 @@ class _HomePageState extends State<HomePage> {
 
               const SizedBox(height: 16),
 
-              // =============== LOKASI & CUACA ===============
+              // =============== LOKASI & CUACA (API ASLI) ===============
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -236,88 +257,213 @@ class _HomePageState extends State<HomePage> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           ),
                           SizedBox(width: 12),
-                          Text('Mengambil lokasi...'),
+                          Text('Mengambil lokasi GPS...'),
                         ],
                       )
                     else ...[
-                      // NAMA LOKASI (GANTI KOORDINAT DENGAN NAMA LOKASI)
-                      Row(
+                      // INFORMASI LOKASI DAN CUACA DARI API ASLI
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(Icons.place, size: 14, color: Colors.blue),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                          // NAMA KOTA DARI WEATHER API
+                          if (provider.weatherData != null)
+                            Row(
                               children: [
-                                // NAMA LOKASI
+                                const Icon(Icons.place, size: 16, color: Colors.blue),
+                                const SizedBox(width: 6),
                                 Text(
-                                  provider.locationName, // NAMA LOKASI DARI PROVIDER
+                                  provider.getCityNameFromWeather(),
                                   style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                // KOORDINAT KECIL (OPSIONAL)
-                                const SizedBox(height: 2),
-                                Text(
-                                  '${provider.currentPosition!.latitude.toStringAsFixed(4)}, '
-                                  '${provider.currentPosition!.longitude.toStringAsFixed(4)}',
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.grey,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
                               ],
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          // MODE APLIKASI
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: _getModeColor(provider.appMode),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              provider.appMode,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
+                          
+                          const SizedBox(height: 6),
+                          
+                          // ALAMAT/GEOCODING
+                          Row(
+                            children: [
+                              const Icon(Icons.location_on, size: 14, color: Colors.grey),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  provider.locationName,
+                                  style: const TextStyle(fontSize: 13),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
-                            ),
+                            ],
+                          ),
+                          
+                          const SizedBox(height: 6),
+                          
+                          // KOORDINAT
+                          Row(
+                            children: [
+                              const Icon(Icons.gps_fixed, size: 12, color: Colors.grey),
+                              const SizedBox(width: 6),
+                              Text(
+                                provider.getFormattedCoordinates(),
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                              const Spacer(),
+                              
+                              // MODE APLIKASI
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: _getModeColor(provider.appMode),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  provider.appMode,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      
+                      const SizedBox(height: 12),
 
-                      // CUACA
+                      // CUACA DARI API ASLI
                       if (provider.weatherData != null)
-                        Row(
-                          children: [
-                            const Icon(Icons.cloud, size: 14, color: Colors.blue),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                provider.getWeatherDescription(),
-                                style: const TextStyle(fontSize: 14),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.blue[200]!),
+                          ),
+                          child: Row(
+                            children: [
+                              // ICON CUACA
+                              Icon(
+                                _getWeatherIcon(provider.getWeatherDescription()),
+                                size: 36,
+                                color: Colors.blue[700],
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 12),
+                              
+                              // INFO CUACA
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      provider.getWeatherDescription().split(' • ').first,
+                                      style: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    if (provider.getTemperature() != null)
+                                      Row(
+                                        children: [
+                                          Text(
+                                            '${provider.getTemperature()!.toStringAsFixed(1)}°C',
+                                            style: const TextStyle(
+                                              fontSize: 20,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.blue,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          // INFO TAMBAHAN DARI API
+                                          if (provider.weatherData != null && 
+                                              provider.weatherData!['main'] != null)
+                                            Text(
+                                              '💧 ${provider.weatherData!['main']['humidity']}%',
+                                              style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                            ),
+                                        ],
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              
+                              // BADGE "DATA ASLI DARI API"
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.green[100],
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Text(
+                                  'API Real',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.green,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         )
-                      else
-                        const Row(
-                          children: [
-                            SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                            SizedBox(width: 12),
-                            Text('Mengambil data cuaca...'),
-                          ],
+                      else if (provider.currentPosition != null)
+                        // LOADING CUACA
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.blue[200]!),
+                          ),
+                          child: Row(
+                            children: [
+                              const SizedBox(
+                                width: 36,
+                                height: 36,
+                                child: CircularProgressIndicator(strokeWidth: 3),
+                              ),
+                              const SizedBox(width: 12),
+                              const Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Mengambil data cuaca...',
+                                      style: TextStyle(fontSize: 14),
+                                    ),
+                                    SizedBox(height: 4),
+                                    Text(
+                                      'Menghubungi OpenWeatherMap API',
+                                      style: TextStyle(fontSize: 11, color: Colors.grey),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange[100],
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Text(
+                                  'Loading',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.orange,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                     ],
                   ],
@@ -394,9 +540,30 @@ class _HomePageState extends State<HomePage> {
                 ),
 
               // =============== SEMUA TODO ===============
-              Text(
-                "Todo + Lokasi",
-                style: Theme.of(context).textTheme.titleLarge,
+              Row(
+                children: [
+                  Text(
+                    "Todo + Lokasi",
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(width: 8),
+                  if (provider.todos.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.blue[100],
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '${provider.todos.length} item',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.blue,
+                        ),
+                      ),
+                    ),
+                ],
               ),
               const SizedBox(height: 10),
 
@@ -433,9 +600,16 @@ class _HomePageState extends State<HomePage> {
                         decoration: todo.isDone
                             ? TextDecoration.lineThrough
                             : null,
+                        color: todo.isDone ? Colors.grey : null,
                       ),
                     ),
-                    subtitle: Text(todo.address ?? '-'),
+                    subtitle: Text(
+                      todo.address ?? '-',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: todo.isDone ? Colors.grey : Colors.grey[600],
+                      ),
+                    ),
                     trailing: PopupMenuButton<String>(
                       icon: const Icon(Icons.more_vert, size: 20),
                       itemBuilder: (context) => [
@@ -483,6 +657,30 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
               ),
+              
+              // FOOTER INFO API
+              if (provider.weatherData != null)
+                Container(
+                  margin: const EdgeInsets.only(top: 20),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[50],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey[300]!),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.info, size: 14, color: Colors.grey),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Data cuaca real-time dari OpenWeatherMap API',
+                          style: TextStyle(fontSize: 11, color: Colors.grey),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
             ],
           );
         },

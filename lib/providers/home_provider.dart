@@ -63,22 +63,22 @@ class HomeProvider extends ChangeNotifier {
         desiredAccuracy: LocationAccuracy.medium,
       );
       
-      print('Lokasi didapat: ${_currentPosition!.latitude}, ${_currentPosition!.longitude}');
+      print('📍 Lokasi didapat: ${_currentPosition!.latitude}, ${_currentPosition!.longitude}');
       
       await _getLocationName();
       
       notifyListeners();
       
-      await _getWeatherData();
+      await _getWeatherData(); // AMBIL DATA CUACA ASLI DARI API
       await _checkAppMode();
       await _checkNearbyTodos();
       
     } catch (e) {
-      print('Error getting location: $e');
+      print('❌ Error getting location: $e');
     }
   }
 
-  // PERBAIKAN METHOD: GET LOCATION NAME FROM COORDINATES
+  // METHOD: GET LOCATION NAME FROM COORDINATES
   Future<void> _getLocationName() async {
     if (_currentPosition == null) return;
     
@@ -86,26 +86,23 @@ class HomeProvider extends ChangeNotifier {
       final placemarks = await placemarkFromCoordinates(
         _currentPosition!.latitude,
         _currentPosition!.longitude,
-      );
+      ).timeout(const Duration(seconds: 5));
       
       if (placemarks.isNotEmpty) {
         final placemark = placemarks.first;
         
-        // FILTER: Hapus Plus Codes (kode seperti JV9H+2H2)
+        // Filter Plus Codes
         String _removePlusCodes(String text) {
-          // Regex untuk mendeteksi Plus Codes
           final plusCodeRegex = RegExp(r'[A-Z0-9]{4,}\+[A-Z0-9]{2,}');
           if (plusCodeRegex.hasMatch(text)) {
-            // Hapus kode plus dan koma/kurung sebelumnya
             return text.replaceAll(plusCodeRegex, '').replaceAll(', ,', ',').trim();
           }
           return text;
         }
         
-        // Coba beberapa format nama lokasi
         List<String> possibleNames = [];
         
-        // Format 1: Street + SubLocality (Jalan + Kecamatan)
+        // Format 1: Street + SubLocality
         if (placemark.street != null && placemark.street!.isNotEmpty &&
             placemark.subLocality != null && placemark.subLocality!.isNotEmpty) {
           String name = '${placemark.street}, ${placemark.subLocality}';
@@ -115,7 +112,7 @@ class HomeProvider extends ChangeNotifier {
           }
         }
         
-        // Format 2: SubLocality + Locality (Kecamatan + Kota)
+        // Format 2: SubLocality + Locality
         if (placemark.subLocality != null && placemark.subLocality!.isNotEmpty &&
             placemark.locality != null && placemark.locality!.isNotEmpty) {
           String name = '${placemark.subLocality}, ${placemark.locality}';
@@ -125,7 +122,7 @@ class HomeProvider extends ChangeNotifier {
           }
         }
         
-        // Format 3: Locality + AdministrativeArea (Kota + Provinsi)
+        // Format 3: Locality + AdministrativeArea
         if (placemark.locality != null && placemark.locality!.isNotEmpty &&
             placemark.administrativeArea != null && placemark.administrativeArea!.isNotEmpty) {
           String name = '${placemark.locality}, ${placemark.administrativeArea}';
@@ -135,7 +132,7 @@ class HomeProvider extends ChangeNotifier {
           }
         }
         
-        // Format 4: Hanya SubLocality (Kecamatan)
+        // Format 4: Hanya SubLocality
         if (placemark.subLocality != null && placemark.subLocality!.isNotEmpty) {
           String name = placemark.subLocality!;
           name = _removePlusCodes(name);
@@ -144,7 +141,7 @@ class HomeProvider extends ChangeNotifier {
           }
         }
         
-        // Format 5: Hanya Locality (Kota)
+        // Format 5: Hanya Locality
         if (placemark.locality != null && placemark.locality!.isNotEmpty) {
           String name = placemark.locality!;
           name = _removePlusCodes(name);
@@ -153,33 +150,30 @@ class HomeProvider extends ChangeNotifier {
           }
         }
         
-        // Pilih nama terbaik (prioritaskan yang lebih panjang/detail)
         if (possibleNames.isNotEmpty) {
-          // Pilih yang paling panjang (biasanya paling detail)
           possibleNames.sort((a, b) => b.length.compareTo(a.length));
           _locationName = possibleNames.first;
         } else {
-          // Fallback: Koordinat format friendly
+          // Fallback ke nama kota dari Weather API nanti
           final lat = _currentPosition!.latitude.toStringAsFixed(2);
           final lng = _currentPosition!.longitude.toStringAsFixed(2);
           _locationName = 'Area ($lat, $lng)';
         }
         
       } else {
-        // Fallback: Koordinat format friendly
+        // Fallback
         final lat = _currentPosition!.latitude.toStringAsFixed(2);
         final lng = _currentPosition!.longitude.toStringAsFixed(2);
         _locationName = 'Area ($lat, $lng)';
       }
       
-      // Bersihkan karakter aneh
+      // Clean up
       _locationName = _locationName
           .replaceAll(' ,', ',')
           .replaceAll(',,', ',')
           .replaceAll('  ', ' ')
           .trim();
           
-      // Hapus koma di akhir jika ada
       if (_locationName.endsWith(',')) {
         _locationName = _locationName.substring(0, _locationName.length - 1).trim();
       }
@@ -187,12 +181,12 @@ class HomeProvider extends ChangeNotifier {
       notifyListeners();
       
     } catch (e) {
-      print('Error get location name: $e');
-      // Fallback ke koordinat friendly
+      print('⚠️ Error get location name: $e');
+      // Fallback akan diupdate oleh data cuaca nanti
       if (_currentPosition != null) {
         final lat = _currentPosition!.latitude.toStringAsFixed(2);
         final lng = _currentPosition!.longitude.toStringAsFixed(2);
-        _locationName = 'Lokasi ($lat, $lng)';
+        _locationName = 'Area ($lat, $lng)';
       } else {
         _locationName = 'Lokasi Anda';
       }
@@ -200,13 +194,38 @@ class HomeProvider extends ChangeNotifier {
     }
   }
 
+  // METHOD BARU: GET WEATHER DATA DARI API ASLI
   Future<void> _getWeatherData() async {
-    if (_currentPosition != null) {
+    if (_currentPosition == null) return;
+    
+    print('🌤 Mengambil data cuaca dari API OpenWeatherMap...');
+    
+    try {
+      // Panggil WeatherService dengan API asli
       _weatherData = await WeatherService.getWeather(
         _currentPosition!.latitude,
         _currentPosition!.longitude,
       );
+      
+      if (_weatherData != null) {
+        print('✅ Data cuaca berhasil didapat');
+        
+        // PERBAIKAN: Jika locationName masih generic, update dengan nama kota dari API
+        if (_locationName.contains('Area') || _locationName.contains('Lokasi')) {
+          final cityName = getCityNameFromWeather();
+          if (cityName.isNotEmpty && cityName != 'Lokasi Anda') {
+            _locationName = cityName;
+            print('📍 Update location name dari API: $cityName');
+          }
+        }
+      } else {
+        print('⚠️ Data cuaca null dari API');
+      }
+      
       notifyListeners();
+      
+    } catch (e) {
+      print('❌ Error get weather data: $e');
     }
   }
 
@@ -253,6 +272,7 @@ class HomeProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // METHOD UNTUK GET WEATHER DESCRIPTION (DARI API ASLI)
   String getWeatherDescription() {
     if (_weatherData == null) return 'Mengambil data cuaca...';
     
@@ -260,16 +280,61 @@ class HomeProvider extends ChangeNotifier {
       final weather = _weatherData!['weather'][0];
       final main = _weatherData!['main'];
       
-      return '${weather['description']} • ${main['temp']}°C';
+      // Format: "awan tersebar • 28.21°C"
+      return '${weather['description']} • ${main['temp'].toStringAsFixed(1)}°C';
     } catch (e) {
-      return 'Cuaca tidak tersedia';
+      return 'Data cuaca tidak tersedia';
     }
   }
   
+  // METHOD BARU: GET CITY NAME FROM WEATHER API
+  String getCityNameFromWeather() {
+    if (_weatherData == null) return 'Lokasi Anda';
+    
+    try {
+      final cityName = _weatherData!['name'];
+      return cityName?.toString() ?? 'Lokasi Anda';
+    } catch (e) {
+      return 'Lokasi Anda';
+    }
+  }
+  
+  // METHOD BARU: GET DETAILED WEATHER INFO
+  String getDetailedWeatherInfo() {
+    if (_weatherData == null) return '';
+    
+    try {
+      final weather = _weatherData!['weather'][0];
+      final main = _weatherData!['main'];
+      final wind = _weatherData!['wind'] ?? {};
+      
+      return '''
+🌡 Suhu: ${main['temp'].toStringAsFixed(1)}°C
+💧 Kelembaban: ${main['humidity']}%
+🌬 Angin: ${wind['speed']?.toStringAsFixed(1) ?? '0'} m/s
+☁️ ${weather['description']}
+''';
+    } catch (e) {
+      return '';
+    }
+  }
+
   String getFormattedCoordinates() {
     if (_currentPosition == null) return '';
     
     return '${_currentPosition!.latitude.toStringAsFixed(4)}, '
            '${_currentPosition!.longitude.toStringAsFixed(4)}';
+  }
+  
+  // METHOD BARU: GET TEMPERATURE
+  double? getTemperature() {
+    if (_weatherData == null) return null;
+    
+    try {
+      final main = _weatherData!['main'];
+      return main['temp']?.toDouble();
+    } catch (e) {
+      return null;
+    }
   }
 }
